@@ -3,7 +3,7 @@ project(AudioPlay)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_executable(AudioPlay main.cpp OpenSans_Regular_ttf.h OpenSans_Regular_ttf.c IWINDOW.cpp IWINDOW.h
+add_executable(AudioPlay main.cpp OpenSans_Regular_ttf.h OpenSans_Regular_ttf.cpp IWINDOW.cpp IWINDOW.h
         import.h
         MusicBlock.h ForWindows/tinyfiledialogs.h ForWindows/tinyfiledialogs.c
         QueueSystem.h
