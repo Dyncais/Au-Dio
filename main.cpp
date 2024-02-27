@@ -4,6 +4,11 @@
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
 #include <filesystem>
+
+#include <windows.h>
+#include <shellapi.h>
+#include <SDL.h>
+
 #include "MusicBlock.h"
 #include "QueueSystem.h"
 #include "ForWindows/tinyfiledialogs.h"
@@ -18,8 +23,14 @@ struct COLORS
 
 int volumeLevel = 50;
 
+NOTIFYICONDATA nid;
+
+
+
 int main()
 {
+
+
     SetConsoleOutputToUnicode();
     COLORS cl;
     IWINDOW iwindow(762,540,"");
@@ -52,19 +63,85 @@ int main()
 
     Queue queue(Importer.GetMusicUUIDList());
 
+
+
+
     while(iwindow.IsRunning())
     {
+
+
+        nid.cbSize = sizeof(NOTIFYICONDATA);
+        nid.hWnd = (HWND)(SDL_GetProperty(SDL_GetWindowProperties(iwindow.window),"SDL.window.win32.hwnd",NULL));
+        nid.uID = 15;
+        nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+        nid.uCallbackMessage = 15666;
+        nid.hIcon = (HICON)LoadImage(NULL, "C:\\Users\\Dima\\CLionProjects\\AudioPlay\\Icon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE);
+
+        strcpy_s(nid.szTip, "Player");
+        Shell_NotifyIcon(NIM_ADD, &nid);
+
         iwindow.Events();
         iwindow.StartFrame();
 
         ImGui::Begin("Gayteka");
-        for(auto& mus : Importer.GetMusicList())
+
+        int my_value;
+        if (ImGui::RadioButton("Date", my_value==1))
+        { my_value = 1;
+             }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Name", my_value==2))
+        { std::cout << "Blyat";
+            my_value = 2;
+        }
+        auto temp_import = Importer.GetMusicList();
+        if(my_value == 2)
+            std::sort(temp_import.begin(), temp_import.end());
+
+        for(auto& mus : temp_import)
         {
             ImGui::Text(mus.c_str());
             if (ImGui::IsItemClicked())
             {
                 queue.AddToEnd(Importer.GetMusic(mus).GetUUID());
             }
+
+            if (ImGui::IsItemHovered() && ImGui::IsItemClicked(ImGuiMouseButton_Right))
+            {
+
+                ImGui::OpenPopup(mus.c_str());
+
+            }
+            if (ImGui::BeginPopup(mus.c_str()))
+            {
+
+                if (ImGui::MenuItem("Change"))
+                {
+                    ProcessChange = true;
+                    changing = [thisName = mus, mus, &ProcessChange,&Importer]() mutable
+                    {
+                        ImGui::Begin("Change",&ProcessChange, ImGuiWindowFlags_NoCollapse);
+
+
+                        if (ImGui::BeginPopupContextItem())
+                        {
+                            if (ImGui::MenuItem("Close Console"))
+                                ProcessChange = false;
+                            ImGui::EndPopup();
+                        }
+
+                        if (ImGui::InputText("Name",&thisName, ImGuiInputTextFlags_EnterReturnsTrue))
+                        {
+                            Importer.GetMusic(mus).ChangeName(thisName);
+                        };
+
+                        ImGui::End();
+                    };
+
+                }
+                ImGui::EndPopup();
+            }
+
         } //Библиотека
         ImGui::End();
 
@@ -172,7 +249,6 @@ int main()
             Mix_VolumeMusic(volumeLevel);
 
 
-
         std::function<void()> deletion;
         bool ProcessDelete = false;
         size_t count = 0;
@@ -205,45 +281,6 @@ int main()
                     Mix_RewindMusic();
                 }
                 Mix_PlayMusic(music.GetMus(), 1);
-            }
-            if (ImGui::IsItemHovered() && ImGui::IsItemClicked(ImGuiMouseButton_Right))
-            {
-
-                    ImGui::OpenPopup(internalIdString.c_str());
-
-            }
-            if (ImGui::BeginPopup(internalIdString.c_str()))
-            {
-
-                    if(ImGui::MenuItem("Create"))
-                    {
-
-                    }
-                    if (ImGui::MenuItem("Change"))
-                    {
-                        ProcessChange = true;
-                        changing = [thisName = musicName, musicId, &ProcessChange,&Importer]() mutable
-                        {ImGui::Begin("Change",&ProcessChange, ImGuiWindowFlags_NoCollapse);
-
-
-                            if (ImGui::BeginPopupContextItem())
-                            {
-                                if (ImGui::MenuItem("Close Console"))
-                                    ProcessChange = false;
-                                ImGui::EndPopup();
-                            }
-
-                            if (ImGui::InputText("Name",&thisName, ImGuiInputTextFlags_EnterReturnsTrue))
-                            {
-                                Importer.GetMusic(musicId).ChangeName(thisName);
-                            };
-
-                            ImGui::End();
-                        };
-
-                    }
-
-                ImGui::EndPopup();
             }
 
             ImGui::SameLine();
@@ -306,14 +343,9 @@ int main()
             isDragAndDrop = false;
         }
 
-
-
         ImGui::End();
 
-
         //Start ImGui frame
-
-
 
         iwindow.Drawing(cl.r * 255,cl.g * 255,cl.b * 255,255); // 3 int: 0 - 255
     }

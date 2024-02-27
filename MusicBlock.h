@@ -20,9 +20,9 @@ class MusicBlock
 
     Mix_Music* object = nullptr;
 
-    const UUID uuid;
+    const MusicPlayer::UUID uuid;
 public:
-    const UUID &GetUUID() const
+    const MusicPlayer::UUID &GetUUID() const
     {
         return uuid;
     }

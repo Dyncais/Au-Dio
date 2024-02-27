@@ -5,6 +5,9 @@
 #include "SDL3_mixer/SDL_mixer.h"
 #include <unordered_map>
 
+#include <algorithm>
+#include <random>
+
 #pragma once
 
 
@@ -13,15 +16,15 @@ class Queue
 
 private:
     bool loop = false;
-    using UUIDFromMusicBlock = UUID;
-    using UUIDFromQueue = UUID;
+    using UUIDFromMusicBlock = MusicPlayer::UUID;
+    using UUIDFromQueue = MusicPlayer::UUID;
     std::unordered_map<UUIDFromQueue, UUIDFromMusicBlock> mappedIds;
 
     std::vector<UUIDFromQueue> mainqueue;
     UUIDFromQueue currentMusic{0};
 public:
 
-    const std::vector<UUID> &getMainqueue() const
+    const std::vector<MusicPlayer::UUID> &getMainqueue() const
     {
         return mainqueue;
     }
@@ -32,27 +35,27 @@ public:
     }
 
 
-    Queue(const std::vector<UUID>& imported)
+    Queue(const std::vector<MusicPlayer::UUID>& imported)
     {
         for(auto& uuid : imported)
         {
-            UUID newId{};
+            MusicPlayer::UUID newId{};
             mappedIds[newId] = uuid;
             mainqueue.push_back(newId);
         }
     }
 
-    UUID InternalIDToGlobalID(UUID internalId)
+    MusicPlayer::UUID InternalIDToGlobalID(MusicPlayer::UUID internalId)
     {
         return mappedIds[internalId];
     }
 
-    UUID GetCurrentMusic()
+    MusicPlayer::UUID GetCurrentMusic()
     {
-        return currentMusic == 0 ? UUID{0} : mappedIds[currentMusic];
+        return currentMusic == 0 ? MusicPlayer::UUID{0} : mappedIds[currentMusic];
     }
 
-    void New_Crt_Mus(UUID idFromQueue)
+    void New_Crt_Mus(MusicPlayer::UUID idFromQueue)
     {
         currentMusic = idFromQueue;
     }
@@ -104,7 +107,8 @@ public:
 
     void Randomize()
     {
-        std::sort(mainqueue.begin(), mainqueue.end());
+        auto rng = std::default_random_engine {};
+        std::shuffle(std::begin(mainqueue), std::end(mainqueue), rng);
     }
 
     void Swap(size_t prew,size_t nnew)
@@ -121,9 +125,9 @@ public:
         mainqueue.erase(mainqueue.begin() + i);
     }
 
-    void AddToEnd(const UUID uuidFromMusicBlock)
+    void AddToEnd(const MusicPlayer::UUID uuidFromMusicBlock)
     {
-        UUID newId{};
+        MusicPlayer::UUID newId{};
         mappedIds[newId] = uuidFromMusicBlock;
         mainqueue.push_back(newId);
     }

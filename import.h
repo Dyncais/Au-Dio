@@ -45,7 +45,7 @@ public:
         }
         throw std::runtime_error("Could not find music in Importer");
     }
-    MusicBlock& GetMusic(UUID id)
+    MusicBlock& GetMusic(MusicPlayer::UUID id)
     {
         for(int i=0;i<Collector.size();i++)
         {
@@ -68,9 +68,9 @@ public:
         return tempList;
     }
 
-    std::vector<UUID> GetMusicUUIDList()
+    std::vector<MusicPlayer::UUID> GetMusicUUIDList()
     {
-        std::vector<UUID> tempList;
+        std::vector<MusicPlayer::UUID> tempList;
         for(int i=0;i<Collector.size();i++)
         {
             tempList.push_back(Collector[i].GetUUID());
