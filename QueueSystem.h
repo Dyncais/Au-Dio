@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include <algorithm>
+#include <ranges>
 #include <random>
 
 #pragma once
@@ -24,9 +25,15 @@ private:
     UUIDFromQueue currentMusic{0};
 public:
 
-    const std::vector<MusicPlayer::UUID> &getMainqueue() const
+    std::vector<std::pair<MusicPlayer::UUID, MusicPlayer::UUID>> getMainqueue() const
     {
-        return mainqueue;
+        std::vector<std::pair<MusicPlayer::UUID, MusicPlayer::UUID>> result;
+        result.reserve(mainqueue.size());
+        for(auto internalId : mainqueue)
+        {
+            result.emplace_back(internalId, InternalIDToGlobalID(internalId));
+        }
+        return result;
     }
 
     bool isLoop() const
@@ -39,15 +46,14 @@ public:
     {
         for(auto& uuid : imported)
         {
-            MusicPlayer::UUID newId{};
-            mappedIds[newId] = uuid;
-            mainqueue.push_back(newId);
+            AddToEnd(uuid);
         }
     }
+    Queue() = default;
 
-    MusicPlayer::UUID InternalIDToGlobalID(MusicPlayer::UUID internalId)
+    MusicPlayer::UUID InternalIDToGlobalID(MusicPlayer::UUID internalId) const
     {
-        return mappedIds[internalId];
+        return mappedIds.at(internalId);
     }
 
     MusicPlayer::UUID GetCurrentMusic()
@@ -120,9 +126,10 @@ public:
         loop = !loop;
     }
 
-    void Delete(size_t i)
+    void Delete(MusicPlayer::UUID internalId)
     {
-        mainqueue.erase(mainqueue.begin() + i);
+        mainqueue.erase(std::ranges::find(mainqueue, internalId));
+        mappedIds.erase(internalId);
     }
 
     void AddToEnd(const MusicPlayer::UUID uuidFromMusicBlock)
@@ -130,5 +137,7 @@ public:
         MusicPlayer::UUID newId{};
         mappedIds[newId] = uuidFromMusicBlock;
         mainqueue.push_back(newId);
+        //LogInfo("Added {0} to queue as {1}", uuidFromMusicBlock, newId);
+        std::cout << std::format("Added {0} to queue as {1}", static_cast<uint64_t>(uuidFromMusicBlock), static_cast<uint64_t>(newId)) << '\n';
     }
 };

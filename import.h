@@ -30,7 +30,6 @@ public:
     void Import(const std::string& path)
     {
         SaveMusicIfNotSaved(path);
-        //return Song;
 
     }
 
@@ -54,6 +53,7 @@ public:
                 return Collector[i];
             };
         }
+
         throw std::runtime_error("Could not find music in Importer");
     }
 
@@ -71,18 +71,31 @@ public:
     std::vector<MusicPlayer::UUID> GetMusicUUIDList()
     {
         std::vector<MusicPlayer::UUID> tempList;
-        for(int i=0;i<Collector.size();i++)
+        for(const auto & i : Collector)
         {
-            tempList.push_back(Collector[i].GetUUID());
+            tempList.push_back(i.GetUUID());
 
         }
         return tempList;
     }
 
-
     std::vector<MusicBlock>& GetCollection()
     {
         return Collector;
+    }
+
+    void DeleteMusic(const std::string& Name)
+    {
+        for(int i=0;i<Collector.size();i++)
+        {
+            if (Name == Collector[i].GetName())
+            {
+                auto temp_path = Collector[i].GetPath();
+                Collector.erase(Collector.begin() +  i);
+                std::filesystem::remove_all(temp_path);
+                return;
+            };
+        }
     }
 private:
 

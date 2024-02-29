@@ -31,7 +31,7 @@ IWINDOW::IWINDOW(int width, int height, std::string Name)
 {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     window = SDL_CreateWindow(Name.c_str(), width,height,SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    render = SDL_CreateRenderer(window, "vulkan",SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    render = SDL_CreateRenderer(window, "opengl",SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     //Initialize ImGui
     ImGui::CreateContext();

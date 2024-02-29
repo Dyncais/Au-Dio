@@ -20,7 +20,7 @@ class MusicBlock
 
     Mix_Music* object = nullptr;
 
-    const MusicPlayer::UUID uuid;
+    MusicPlayer::UUID uuid;
 public:
     const MusicPlayer::UUID &GetUUID() const
     {
@@ -69,10 +69,11 @@ public:
             std::cerr << "Ошибка при загрузке MP3: " << Mix_GetError() << std::endl;
             return;
         }
-
+        std::cout << std::format("MusicBlock created. UUID: {0}; Name: {1}; Path: {2}; Duration {3} ms", static_cast<uint64_t>(uuid), name, path.string(), duration) << '\n';
     }
 
     MusicBlock(MusicBlock&& original)
+    : uuid(original.uuid)
     {
         name = std::move(original.name);
 
@@ -101,6 +102,8 @@ public:
 
         duration = original.duration;
 
+        uuid = original.uuid;
+
         return *this;
     }
 
@@ -115,5 +118,6 @@ public:
             return;
 
         Mix_FreeMusic(object);
+        std::cout << std::format("MusicBlock Deleted. UUID: {0}; Name: {1}; Path: {2}; Duration {3} ms", static_cast<uint64_t>(uuid), name, path.string(), duration) << '\n';
     }
 };

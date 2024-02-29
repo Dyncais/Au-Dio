@@ -20,16 +20,14 @@ struct COLORS
     float r = 1, g = 1, b = 1;
 };
 
-
 int volumeLevel = 50;
 
 NOTIFYICONDATA nid;
 
-
+std::function<void()> deletionfromsys;
 
 int main()
 {
-
 
     SetConsoleOutputToUnicode();
     COLORS cl;
@@ -56,12 +54,13 @@ int main()
     std::chrono::milliseconds TotalTime{0};
 
     bool ProcessChange = false;
+    bool DeletionFileSys = false;
     std::function<void()> changing;
 
     MusicImporter Importer(std::filesystem::current_path() / "music");
 
 
-    Queue queue(Importer.GetMusicUUIDList());
+    Queue queue;
 
 
 
@@ -91,7 +90,7 @@ int main()
              }
         ImGui::SameLine();
         if (ImGui::RadioButton("Name", my_value==2))
-        { std::cout << "Blyat";
+        {
             my_value = 2;
         }
         auto temp_import = Importer.GetMusicList();
@@ -138,6 +137,15 @@ int main()
                         ImGui::End();
                     };
 
+                }
+
+                if (ImGui::MenuItem("Delete"))
+                {
+                    deletionfromsys = [&Importer,mus]() {
+                        Importer.DeleteMusic(mus);
+                    };
+                    DeletionFileSys = true;
+                    //Importer.DeleteMusic(mus);
                 }
                 ImGui::EndPopup();
             }
@@ -253,10 +261,8 @@ int main()
         bool ProcessDelete = false;
         size_t count = 0;
         bool canShow = false;
-        for(auto it =  queue.getMainqueue().begin(); it !=  queue.getMainqueue().end(); ++it)
+        for(auto [musicInternalId, musicId] :  queue.getMainqueue())
         {
-            auto& musicInternalId = *it;
-            auto musicId = queue.InternalIDToGlobalID(musicInternalId);
             auto& music = Importer.GetMusic(musicId);
             auto& musicName = music.GetName();
             std::string internalIdString = std::to_string(musicInternalId);
@@ -288,11 +294,8 @@ int main()
 
             if(ImGui::Button("Delete"))
             {
-                deletion =[&queue,count](){
-
-                    //queue.getMainqueue().erase(it);
-                    queue.Delete(count);
-                    //std::filesystem::remove_all(thisPath);
+                 deletion =[&queue,musicInternalId](){
+                    queue.Delete(musicInternalId);
                 };
                 ProcessDelete = true;
             }
@@ -333,14 +336,18 @@ int main()
             changing();
         }
 
+        if (DeletionFileSys)
+        {
+            deletionfromsys();
+            DeletionFileSys = false;
+        }
 
         if(isDragAndDrop)
         {
             Importer.Import(dragAndDropPath);
-            //NameMus = std::filesystem::path(dragAndDropPath).filename().replace_extension("").string();
-            //CurrentTime = current_mus.GetTime();
 
             isDragAndDrop = false;
+
         }
 
         ImGui::End();
