@@ -10,7 +10,8 @@ add_executable(AudioPlay main.cpp OpenSans_Regular_ttf.h OpenSans_Regular_ttf.cp
         UUID.cpp
         UUID.h
         ForWindows/Windows.h
-        ForWindows/Windows.cpp)
+        ForWindows/Windows.cpp
+        DeletionQueue.h)
 
 include(ImGui.cmake)
 add_imgui_and_sdl3(AudioPlay)

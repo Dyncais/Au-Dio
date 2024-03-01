@@ -98,7 +98,7 @@ public:
 
     void Prev_Song()
     {
-        if (currentMusic == mainqueue[0])
+        if ((currentMusic == 0) or (currentMusic == mainqueue[0]))
         {
             return;
         }
@@ -117,9 +117,56 @@ public:
         std::shuffle(std::begin(mainqueue), std::end(mainqueue), rng);
     }
 
-    void Swap(size_t prew,size_t nnew)
+    bool IsFirst(MusicPlayer::UUID id)
     {
-        std::swap(mainqueue[prew], mainqueue[nnew]);
+        assert(!mainqueue.empty() && "Queue must be not empty");
+        return id == mainqueue[0];
+    }
+
+    bool IsLast(MusicPlayer::UUID id)
+    {
+        assert(!mainqueue.empty() && "Queue must be not empty");
+        return id == mainqueue[mainqueue.size() - 1];
+    }
+
+    void SwapUp(MusicPlayer::UUID id)
+    {
+        assert(!mainqueue.empty() && "Queue must be not empty");
+
+        for(size_t i = 0;i < mainqueue.size(); ++i)
+        {
+
+            if ((id == mainqueue[i]))
+            {
+                assert(i > 0 && "Swap out of range");
+
+                auto temp = mainqueue[i - 1];
+                mainqueue[i - 1] = id;
+                mainqueue[i] = temp;
+                return;
+            }
+        }
+
+        throw std::runtime_error("Swap not success");
+    }
+
+    void SwapDown(MusicPlayer::UUID id)
+    {
+        assert(!mainqueue.empty() && "Queue must be not empty");
+
+        for(size_t i = 0;i < mainqueue.size() - 1; ++i)
+        {
+
+            if ((id == mainqueue[i]))
+            {
+                auto temp = mainqueue[i + 1];
+                mainqueue[i + 1] = id;
+                mainqueue[i] = temp;
+                return;
+            }
+        }
+
+        throw std::runtime_error("Swap not success");
     }
     void ChangeLoop()
     {
@@ -128,6 +175,9 @@ public:
 
     void Delete(MusicPlayer::UUID internalId)
     {
+        assert(!mainqueue.empty() && "Queue must be not empty");
+        if(internalId == currentMusic)
+            currentMusic = 0;
         mainqueue.erase(std::ranges::find(mainqueue, internalId));
         mappedIds.erase(internalId);
     }

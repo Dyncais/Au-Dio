@@ -9,6 +9,7 @@
 #include <shellapi.h>
 #include <SDL.h>
 
+#include "DeletionQueue.h"
 #include "MusicBlock.h"
 #include "QueueSystem.h"
 #include "ForWindows/tinyfiledialogs.h"
@@ -24,7 +25,14 @@ int volumeLevel = 50;
 
 NOTIFYICONDATA nid;
 
-std::function<void()> deletionfromsys;
+std::string GetTimeAsTextForProgressBar(std::chrono::milliseconds time)
+{
+    auto timeText = time.count();
+    int64_t seconds = timeText / 60000;
+    int64_t milliseconds = timeText % 60000 / 1000;
+    std::string totalTime = std::to_string(seconds) + "m " + std::to_string(milliseconds) + "s";
+    return totalTime;
+}
 
 int main()
 {
@@ -41,40 +49,36 @@ int main()
         SDL_Quit();
         return 1;
     }
-    bool isDragAndDrop = false;
-    std::string dragAndDropPath;
-    auto functionThatRunsOnDragAndDrop = [&isDragAndDrop, &dragAndDropPath](const std::string& path){
-        isDragAndDrop = true;
-        dragAndDropPath = path;
-    };
-    iwindow.SetFunctionThatCallsOnDragAndDrop(functionThatRunsOnDragAndDrop);
+
+
+    Queue queue;
+    DeletionQueue LastFrame;
+
+    bool ProcessChange = false;
 
     std::string TextButton = "Play";
     std::chrono::milliseconds CurrentTime{0};
     std::chrono::milliseconds TotalTime{0};
 
-    bool ProcessChange = false;
-    bool DeletionFileSys = false;
     std::function<void()> changing;
 
     MusicImporter Importer(std::filesystem::current_path() / "music");
 
-
-    Queue queue;
-
-
-
+    auto functionThatRunsOnDragAndDrop = [&Importer](const std::string& path){
+        Importer.Import(path);
+    };
+    iwindow.SetFunctionThatCallsOnDragAndDrop(functionThatRunsOnDragAndDrop);
 
     while(iwindow.IsRunning())
     {
 
 
         nid.cbSize = sizeof(NOTIFYICONDATA);
-        nid.hWnd = (HWND)(SDL_GetProperty(SDL_GetWindowProperties(iwindow.window),"SDL.window.win32.hwnd",NULL));
+        nid.hWnd = (HWND)(SDL_GetProperty(SDL_GetWindowProperties(iwindow.window),"SDL.window.win32.hwnd",nullptr));
         nid.uID = 15;
         nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         nid.uCallbackMessage = 15666;
-        nid.hIcon = (HICON)LoadImage(NULL, "C:\\Users\\Dima\\CLionProjects\\AudioPlay\\Icon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE);
+        nid.hIcon = (HICON)LoadImage(nullptr, R"(C:\Users\Dima\CLionProjects\AudioPlay\Icon.ico)", IMAGE_ICON, 0, 0, LR_LOADFROMFILE);
 
         strcpy_s(nid.szTip, "Player");
         Shell_NotifyIcon(NIM_ADD, &nid);
@@ -86,13 +90,10 @@ int main()
 
         int my_value;
         if (ImGui::RadioButton("Date", my_value==1))
-        { my_value = 1;
-             }
+          my_value = 1;
         ImGui::SameLine();
         if (ImGui::RadioButton("Name", my_value==2))
-        {
             my_value = 2;
-        }
         auto temp_import = Importer.GetMusicList();
         if(my_value == 2)
             std::sort(temp_import.begin(), temp_import.end());
@@ -132,20 +133,17 @@ int main()
                         if (ImGui::InputText("Name",&thisName, ImGuiInputTextFlags_EnterReturnsTrue))
                         {
                             Importer.GetMusic(mus).ChangeName(thisName);
-                        };
+                        }
 
                         ImGui::End();
                     };
-
                 }
 
                 if (ImGui::MenuItem("Delete"))
                 {
-                    deletionfromsys = [&Importer,mus]() {
+                    LastFrame.InputFunction([&Importer,mus]() {
                         Importer.DeleteMusic(mus);
-                    };
-                    DeletionFileSys = true;
-                    //Importer.DeleteMusic(mus);
+                    });
                 }
                 ImGui::EndPopup();
             }
@@ -160,58 +158,50 @@ int main()
 
         //ImGui::SetCursorPos({ImGui::GetWindowSize().x/2, 30});
         ImGui::Text(currentMusName.c_str());
-        if(currentMusName != "Choose music")
+
+        if(currentMusName == "Choose music")
         {
-            CurrentTime = std::chrono::seconds (static_cast<int64_t>(Mix_GetMusicPosition(Importer.GetMusic(currentMusic).GetMus())));
-        }
-        auto timeText = TotalTime.count();
-        int seconds = timeText / 60000;
-        int milliseconds = timeText % 60000 / 1000;
-
-        std::string totalTime = std::to_string(seconds) + "m " + std::to_string(milliseconds) + "s";
-        timeText = CurrentTime.count();
-        seconds = timeText / 60000;
-        milliseconds = timeText % 60000 / 1000;
-        std::string currentTime = std::to_string(seconds) + "m " + std::to_string(milliseconds) + "s";
-
-        if(TotalTime.count() == 0)
             ImGui::ProgressBar(0, ImVec2(200.0f, 20.0f));
-        else if(TotalTime == CurrentTime)
-        {
-            Mix_RewindMusic();
-            Mix_PauseMusic();
-            queue.Next_Song();
-            currentMusic = queue.GetCurrentMusic();
-            if (currentMusic != 0)
-            {
-            Mix_PlayMusic(Importer.GetMusic(currentMusic).GetMus(), 1);
-            TotalTime = Importer.GetMusic(currentMusic).GetTime();
-            }
+            ImGui::Text("0m/ 0s");
         }
         else
         {
-            //ImGui::SetCursorPosX(ImGui::GetWindowSize().x/2);
+            TotalTime = Importer.GetMusic(currentMusic).GetTime();
+            CurrentTime = std::chrono::seconds (static_cast<int64_t>(Mix_GetMusicPosition(Importer.GetMusic(currentMusic).GetMus())));
+
             ImGui::ProgressBar(static_cast<float>(CurrentTime.count()) / static_cast<float>(TotalTime.count()), ImVec2(200.0f, 20.0f),""); //хз почему nullptr не робит
 
+            std::string totalTime = GetTimeAsTextForProgressBar(TotalTime);
+
+            std::string currentTime = GetTimeAsTextForProgressBar(CurrentTime);
+
+            ImGui::Text("%s/%s", currentTime.c_str(),totalTime.c_str());
+
+            if(TotalTime == CurrentTime)
+            {
+                Mix_RewindMusic();
+                Mix_PauseMusic();
+                queue.Next_Song();
+                currentMusic = queue.GetCurrentMusic();
+                if (currentMusic != 0)
+                {
+                    Mix_PlayMusic(Importer.GetMusic(currentMusic).GetMus(), 1);
+                    TotalTime = Importer.GetMusic(currentMusic).GetTime();
+                }
+            }
+
         }
-
-        ImGui::Text("%s/%s", currentTime.c_str(),totalTime.c_str());
-
-
 
         ImGui::SetCursorPos({420,20});
 
         if(ImGui::Button("Down",{40, 40}))
         {
             const char * filterPatterns[2] = { "*.mp3", "*.WAV" };
-            const char * result = tinyfd_openFileDialog("Напишите", NULL, 2, filterPatterns,".mp3,.WAV",0);
+            const char * result = tinyfd_openFileDialog("Напишите", nullptr, 2, filterPatterns,".mp3,.WAV",0);
             if (result) {
                 Importer.Import(result);
-                //NameMus = std::filesystem::path(result).filename().replace_extension("").string();
-                //CurrentTime = current_mus.GetTime();
-
             }
-        };
+        }
 
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         {
@@ -233,7 +223,7 @@ int main()
         if(ImGui::Button(TextButton.c_str(),{100, 50}) and (currentMusic != 0))
         {
             Play(Importer.GetMusic(currentMusic).GetMus());
-        };
+        }
 
         ImGui::SameLine();
         if(ImGui::Button("Random",{100, 50}))
@@ -245,11 +235,11 @@ int main()
             Mix_RewindMusic();
             Mix_PauseMusic();
             queue.Prev_Song();
-            currentMusic = queue.GetCurrentMusic();
             if (currentMusic != 0)
             {
-              Mix_PlayMusic(Importer.GetMusic(currentMusic).GetMus(), 1);
-               TotalTime = Importer.GetMusic(currentMusic).GetTime();
+                currentMusic = queue.GetCurrentMusic();
+                Mix_PlayMusic(Importer.GetMusic(currentMusic).GetMus(), 1);
+                TotalTime = Importer.GetMusic(currentMusic).GetTime();
             }
         }
 
@@ -257,35 +247,22 @@ int main()
             Mix_VolumeMusic(volumeLevel);
 
 
-        std::function<void()> deletion;
-        bool ProcessDelete = false;
-        size_t count = 0;
-        bool canShow = false;
         for(auto [musicInternalId, musicId] :  queue.getMainqueue())
         {
             auto& music = Importer.GetMusic(musicId);
             auto& musicName = music.GetName();
             std::string internalIdString = std::to_string(musicInternalId);
-            /*if(!canShow && current != "##")
-            {
-                if(music == current)
-                {
-                    canShow = true;
-                }
-                count++;
-                continue;
-            }*/
+
             ImGui::Text(musicName.c_str());
 
             if (ImGui::IsItemClicked())
             {
                 TotalTime = music.GetTime();
                 queue.New_Crt_Mus(musicInternalId);
-                if(isPlaying)
-                {
-                    Mix_PauseMusic();
-                    Mix_RewindMusic();
-                }
+                //was isPlaying
+                Mix_PauseMusic();
+                Mix_RewindMusic();
+
                 Mix_PlayMusic(music.GetMus(), 1);
             }
 
@@ -294,61 +271,39 @@ int main()
 
             if(ImGui::Button("Delete"))
             {
-                 deletion =[&queue,musicInternalId](){
+                LastFrame.InputFunction([&queue,musicInternalId](){
                     queue.Delete(musicInternalId);
-                };
-                ProcessDelete = true;
-            }
+                });
 
-            if (count != 0)
-            {
-                ImGui::SameLine();
-                if(ImGui::Button("Up"))
+                if (currentMusic == musicId)
                 {
-                    queue.Swap( count, count - 1);
+                    Mix_RewindMusic();
+                    Mix_PauseMusic();
                 }
             }
 
-            if(count !=  queue.getMainqueue().size() - 1)
+
+            ImGui::SameLine();
+            if(!queue.IsFirst(musicInternalId) and ImGui::Button("Up"))
             {
-                ImGui::SameLine();
-                if(ImGui::Button("Down"))
-                {
-                    queue.Swap( count, count + 1);
-                }
+                queue.SwapUp( musicInternalId);
             }
 
-            count++;
+
+            ImGui::SameLine();
+            if(!queue.IsLast(musicInternalId) and ImGui::Button("Down"))
+            {
+                queue.SwapDown( musicInternalId);
+            }
 
             ImGui::PopID();
 
-
-
-        }
-
-        if(ProcessDelete)
-        {
-            deletion();
-            ProcessDelete = false;
         }
         if (ProcessChange)
         {
             changing();
         }
-
-        if (DeletionFileSys)
-        {
-            deletionfromsys();
-            DeletionFileSys = false;
-        }
-
-        if(isDragAndDrop)
-        {
-            Importer.Import(dragAndDropPath);
-
-            isDragAndDrop = false;
-
-        }
+        LastFrame.OutputFunction();
 
         ImGui::End();
 
