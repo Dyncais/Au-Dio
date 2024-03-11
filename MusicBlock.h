@@ -27,6 +27,11 @@ public:
         return uuid;
     }
 
+    void SetIDFromJSON(MusicPlayer::UUID newuuid)
+    {
+        uuid = newuuid;
+    }
+
 public:
 
     MusicBlock() = default;
@@ -48,7 +53,7 @@ public:
 
     const  std::filesystem::path& GetPath()
     {
-        //лол блять, тут пути то и нет по факту
+        //лол, тут пути то и нет по факту
         return path;
     }
 

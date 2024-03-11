@@ -12,9 +12,12 @@
 #include "DeletionQueue.h"
 #include "MusicBlock.h"
 #include "QueueSystem.h"
+#include "JSONEditor.h"
+#include "PlayLists.h"
 #include "ForWindows/tinyfiledialogs.h"
 #include "chrono"
 #include "ForWindows/Windows.h"
+#include "ForWindows/json.hpp"
 
 struct COLORS
 {
@@ -55,6 +58,7 @@ int main()
     DeletionQueue LastFrame;
 
     bool ProcessChange = false;
+    std::string nameplaylist;
 
     std::string TextButton = "Play";
     std::chrono::milliseconds CurrentTime{0};
@@ -62,97 +66,164 @@ int main()
 
     std::function<void()> changing;
 
-    MusicImporter Importer(std::filesystem::current_path() / "music");
+    MusicImporter Importer(std::filesystem::current_path() / "music",std::filesystem::current_path() / "Library.json");
+
 
     auto functionThatRunsOnDragAndDrop = [&Importer](const std::string& path){
         Importer.Import(path);
+        JSONID jsonfile(Importer);
+        jsonfile.Save(std::filesystem::current_path() / "Library.json");
     };
     iwindow.SetFunctionThatCallsOnDragAndDrop(functionThatRunsOnDragAndDrop);
 
+
+    nid.cbSize = sizeof(NOTIFYICONDATA);
+    nid.hWnd = (HWND)(SDL_GetProperty(SDL_GetWindowProperties(iwindow.window),"SDL.window.win32.hwnd",nullptr));
+    nid.uID = 15;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    nid.uCallbackMessage = 15666;
+    std::string iconPath = (std::filesystem::current_path() / "Assets/Icon.ico").string();
+    nid.hIcon = (HICON)LoadImage(nullptr, iconPath.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);
+
+    strcpy_s(nid.szTip, "Player");
+    Shell_NotifyIcon(NIM_ADD, &nid);
+
+
+    //ShowWindow(nid.hWnd, SW_HIDE);
+    //ShowWindow(nid.hWnd, SW_RESTORE);
+    //HMENU hMenu = LoadMenu(nullptr, iconPath.c_str());
+
     while(iwindow.IsRunning())
     {
-
-
-        nid.cbSize = sizeof(NOTIFYICONDATA);
-        nid.hWnd = (HWND)(SDL_GetProperty(SDL_GetWindowProperties(iwindow.window),"SDL.window.win32.hwnd",nullptr));
-        nid.uID = 15;
-        nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-        nid.uCallbackMessage = 15666;
-        nid.hIcon = (HICON)LoadImage(nullptr, R"(C:\Users\Dima\CLionProjects\AudioPlay\Icon.ico)", IMAGE_ICON, 0, 0, LR_LOADFROMFILE);
-
-        strcpy_s(nid.szTip, "Player");
-        Shell_NotifyIcon(NIM_ADD, &nid);
-
         iwindow.Events();
         iwindow.StartFrame();
-
         ImGui::Begin("Gayteka");
 
-        int my_value;
-        if (ImGui::RadioButton("Date", my_value==1))
-          my_value = 1;
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Name", my_value==2))
-            my_value = 2;
-        auto temp_import = Importer.GetMusicList();
-        if(my_value == 2)
-            std::sort(temp_import.begin(), temp_import.end());
-
-        for(auto& mus : temp_import)
+        if (ImGui::BeginTabBar("TabBar"))
         {
-            ImGui::Text(mus.c_str());
-            if (ImGui::IsItemClicked())
-            {
-                queue.AddToEnd(Importer.GetMusic(mus).GetUUID());
-            }
-
-            if (ImGui::IsItemHovered() && ImGui::IsItemClicked(ImGuiMouseButton_Right))
+            if (ImGui::BeginTabItem("Список треков"))
             {
 
-                ImGui::OpenPopup(mus.c_str());
+                int my_value;
+                if (ImGui::RadioButton("Date", my_value == 1))
+                    my_value = 1;
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Name", my_value == 2))
+                    my_value = 2;
+                auto temp_import = Importer.GetMusicList();
+                if (my_value == 2)
+                    std::sort(temp_import.begin(), temp_import.end());
 
-            }
-            if (ImGui::BeginPopup(mus.c_str()))
-            {
-
-                if (ImGui::MenuItem("Change"))
+                for (auto &mus: temp_import)
                 {
-                    ProcessChange = true;
-                    changing = [thisName = mus, mus, &ProcessChange,&Importer]() mutable
+                    ImGui::Text(mus.c_str());
+                    if (ImGui::IsItemClicked())
                     {
-                        ImGui::Begin("Change",&ProcessChange, ImGuiWindowFlags_NoCollapse);
+                        queue.AddToEnd(Importer.GetMusic(mus).GetUUID());
+                    }
 
+                    if (ImGui::IsItemHovered() && ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                    {
 
-                        if (ImGui::BeginPopupContextItem())
+                        ImGui::OpenPopup(mus.c_str());
+
+                    }
+                    if (ImGui::BeginPopup(mus.c_str()))
+                    {
+
+                        if (ImGui::MenuItem("Change"))
                         {
-                            if (ImGui::MenuItem("Close Console"))
-                                ProcessChange = false;
-                            ImGui::EndPopup();
+                            ProcessChange = true;
+                            changing = [thisName = mus, mus, &ProcessChange, &Importer]() mutable
+                            {
+                                ImGui::Begin("Change", &ProcessChange, ImGuiWindowFlags_NoCollapse);
+
+
+                                if (ImGui::BeginPopupContextItem())
+                                {
+                                    if (ImGui::MenuItem("Close Console"))
+                                        ProcessChange = false;
+                                    ImGui::EndPopup();
+                                }
+
+                                if (ImGui::InputText("Name", &thisName, ImGuiInputTextFlags_EnterReturnsTrue))
+                                {
+                                    Importer.GetMusic(mus).ChangeName(thisName);
+                                }
+
+                                ImGui::End();
+                            };
                         }
 
-                        if (ImGui::InputText("Name",&thisName, ImGuiInputTextFlags_EnterReturnsTrue))
+                        if (ImGui::MenuItem("Delete"))
                         {
-                            Importer.GetMusic(mus).ChangeName(thisName);
+                            LastFrame.InputFunction([&Importer, mus]()
+                                                    {
+                                                        Importer.DeleteMusic(mus);
+                                                    });
+
                         }
+                        ImGui::EndPopup();
+                    }
 
-                        ImGui::End();
-                    };
-                }
-
-                if (ImGui::MenuItem("Delete"))
-                {
-                    LastFrame.InputFunction([&Importer,mus]() {
-                        Importer.DeleteMusic(mus);
-                    });
-                }
-                ImGui::EndPopup();
+                } //Библиотека
+                ImGui::EndTabItem();
             }
 
-        } //Библиотека
+            if (ImGui::BeginTabItem("Плейлисты"))
+            {
+                auto workDirectory = std::filesystem::current_path() / "PlaylistCollection";
+                if(!std::filesystem::exists(workDirectory))
+                {
+                    std::filesystem::create_directory(workDirectory);
+                }
+
+                for(auto& directoryEntry : std::filesystem::directory_iterator(workDirectory))
+                {
+                    std::ifstream ifs(directoryEntry.path(), std::ios::in);
+                    if (!ifs)
+                    {
+                        throw std::runtime_error("Cyka, cannot open file!");
+                    }
+                    nlohmann::json j;
+                    ifs >> j;
+                    ifs.close();
+
+                    std::string filenameWithoutExtension = directoryEntry.path().stem().string();
+                    ImGui::Selectable(filenameWithoutExtension.c_str());
+
+                    if (ImGui::IsItemClicked())
+                    {
+                        queue.CleanALL();
+                        for (const auto &obj: j)
+                        {
+                            queue.AddToEnd(obj.at("track_id").get<uint64_t>());
+                        }
+
+                    }
+                }
+
+                if (ImGui::InputText("Name of playlist", &nameplaylist))
+                {
+
+                }
+
+                if(ImGui::Button("+"))
+                {
+                    Playlists list(queue.getMainqueue());
+                    list.Save(std::filesystem::current_path() / "PlaylistCollection" / (nameplaylist + ".json"));
+                }
+                ImGui::SameLine();
+                ImGui::Text("Сохранить текущую очередь как плейлист");
+                ImGui::EndTabItem();
+            }
+        }
+        ImGui::EndTabBar();
+
         ImGui::End();
 
         ImGui::SetNextWindowSize({480 ,720});
-        ImGui::Begin("Bruh");
+        ImGui::Begin("Bruh", nullptr, ImGuiWindowFlags_NoTitleBar);
         auto currentMusic = queue.GetCurrentMusic();
         std::string currentMusName = currentMusic == 0 ? "Choose music" :  Importer.GetMusic(currentMusic).GetName();
 
@@ -218,7 +289,9 @@ int main()
             if(isPlaying)
                 TextButton = "Stop";
             else
+            {
                 TextButton = "Play";
+            }
         }
         if(ImGui::Button(TextButton.c_str(),{100, 50}) and (currentMusic != 0))
         {
@@ -299,6 +372,7 @@ int main()
             ImGui::PopID();
 
         }
+
         if (ProcessChange)
         {
             changing();
@@ -311,6 +385,9 @@ int main()
 
         iwindow.Drawing(cl.r * 255,cl.g * 255,cl.b * 255,255); // 3 int: 0 - 255
     }
+    Shell_NotifyIcon(NIM_DELETE, &nid);
+
+
     //Cleanup
 
 }

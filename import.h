@@ -5,6 +5,8 @@
 #include "MusicBlock.h"
 #include "iostream"
 #include "SDL3_mixer/SDL_mixer.h"
+#include "ForWindows/json.hpp"
+#include "fstream"
 #pragma once
 
 class MusicImporter
@@ -12,9 +14,8 @@ class MusicImporter
 
 public:
 
-    MusicImporter(const std::filesystem::path& workingDirectory)
+    MusicImporter(const std::filesystem::path& workingDirectory, const std::filesystem::path& JSONDirectory): workDirectory(workingDirectory)
     {
-        workDirectory = workingDirectory;
 
         if(!std::filesystem::exists(workDirectory))
         {
@@ -25,33 +26,51 @@ public:
         {
             Collector.emplace_back(directoryEntry.path());
         }
+
+        std::ifstream ifs(JSONDirectory, std::ios::in);
+        if (!ifs) {
+            throw std::runtime_error("Cyka, cannot open file!");
+        }
+        nlohmann::json j;
+        ifs >> j;
+        ifs.close();
+
+        for(auto& mus: Collector)
+        {
+            for (const auto& obj : j)
+            {
+                if (obj.at("name") == mus.GetName())
+                {
+                    mus.SetIDFromJSON(obj.at("id").get<uint64_t>());
+                }
+            }
+        } //честно не нравится эта идея, но другое вообще не приходит
     }
 
     void Import(const std::string& path)
     {
         SaveMusicIfNotSaved(path);
-
     }
 
     MusicBlock& GetMusic(const std::string& Name)
     {
-        for(int i=0;i<Collector.size();i++)
+        for(auto & i : Collector)
         {
-            if (Name == Collector[i].GetName())
+            if (Name == i.GetName())
             {
-                return Collector[i];
-            };
+                return i;
+            }
         }
         throw std::runtime_error("Could not find music in Importer");
     }
     MusicBlock& GetMusic(MusicPlayer::UUID id)
     {
-        for(int i=0;i<Collector.size();i++)
+        for(auto & i : Collector)
         {
-            if (id == Collector[i].GetUUID())
+            if (id == i.GetUUID())
             {
-                return Collector[i];
-            };
+                return i;
+            }
         }
 
         throw std::runtime_error("Could not find music in Importer");
@@ -94,7 +113,7 @@ public:
                 Collector.erase(Collector.begin() +  i);
                 std::filesystem::remove_all(temp_path);
                 return;
-            };
+            }
         }
     }
 private:

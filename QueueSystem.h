@@ -182,6 +182,11 @@ public:
         mappedIds.erase(internalId);
     }
 
+    void CleanALL()
+    {
+        mainqueue.clear();
+        return;
+    }
     void AddToEnd(const MusicPlayer::UUID uuidFromMusicBlock)
     {
         MusicPlayer::UUID newId{};
