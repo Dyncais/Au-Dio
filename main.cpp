@@ -189,6 +189,8 @@ int main()
                     ifs >> j;
                     ifs.close();
 
+
+                    ImGui::SetNextItemAllowOverlap();
                     std::string filenameWithoutExtension = directoryEntry.path().stem().string();
                     ImGui::Selectable(filenameWithoutExtension.c_str());
 
@@ -201,6 +203,15 @@ int main()
                         }
 
                     }
+                    ImGui::SameLine();
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                    ImGui::SmallButton("x");
+                    {
+
+                    }
+                    ImGui::PopStyleColor(3);
                 }
 
                 if (ImGui::InputText("Name of playlist", &nameplaylist))
