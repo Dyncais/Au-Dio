@@ -10,8 +10,16 @@
 #include <backends/imgui_impl_sdlrenderer3.h>
 #include "OpenSans_Regular_ttf.h"
 #include "SDL3_mixer/SDL_mixer.h"
+#include "SDL_events.h"
 
-void IWINDOW::Drawing(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+
+
+void IWINDOW::BeginDrawing()
+{
+    SDL_RenderClear(render);
+}
+
+void IWINDOW::EndDrawing(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     ImGui::Render();
 
@@ -20,9 +28,8 @@ void IWINDOW::Drawing(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
         std::cout << "Error: " << SDL_GetError() << '\n';
     }
 
-    SDL_RenderClear(render);
 
-    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData());
+    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), render);
 
     SDL_RenderPresent(render);
 }
@@ -31,7 +38,7 @@ IWINDOW::IWINDOW(int width, int height, std::string Name)
 {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     window = SDL_CreateWindow(Name.c_str(), width,height,SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    render = SDL_CreateRenderer(window, "opengl",SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    render = SDL_CreateRenderer(window, "opengl");
 
     //Initialize ImGui
     ImGui::CreateContext();
@@ -71,6 +78,24 @@ void IWINDOW::Events()
         if (NY.type == SDL_EVENT_QUIT)
         {
             is_running = false;
+        }
+
+        if (NY.type == SDL_EVENT_DROP_BEGIN) {
+            char* dropped_filedir = NY.drop.data;
+            m_OnDragAndDrop(dropped_filedir);
+
+        }
+
+        if (NY.type == SDL_EVENT_DROP_FILE) {
+            char* dropped_filedir = NY.drop.data;
+            m_OnDragAndDrop(dropped_filedir);
+
+        }
+
+        if (NY.type == SDL_EVENT_DROP_COMPLETE) {
+            char* dropped_filedir = NY.drop.data;
+            m_OnDragAndDrop(dropped_filedir);
+
         }
 
         if (NY.type == SDL_EVENT_DROP_FILE) {

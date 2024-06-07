@@ -1,5 +1,7 @@
 #include <iostream>
 #include "IWINDOW.h"
+#include "SDL3_mixer/SDL_mixer.h"
+#include "sndfile.h"
 #include "import.h"
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
@@ -7,7 +9,7 @@
 
 #include <windows.h>
 #include <shellapi.h>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "DeletionQueue.h"
 #include "MusicBlock.h"
@@ -15,7 +17,6 @@
 #include "JSONEditor.h"
 #include "PlayLists.h"
 #include "ForWindows/tinyfiledialogs.h"
-#include "chrono"
 #include "ForWindows/Windows.h"
 #include "ForWindows/json.hpp"
 
@@ -35,6 +36,35 @@ std::string GetTimeAsTextForProgressBar(std::chrono::milliseconds time)
     int64_t milliseconds = timeText % 60000 / 1000;
     std::string totalTime = std::to_string(seconds) + "m " + std::to_string(milliseconds) + "s";
     return totalTime;
+}
+std::filesystem::path OpenFileDialog(const char* title, size_t numberOfFilters, const char** filterPatterns, const char* filterDescription)
+{
+    #if defined(_WIN32)
+    auto wtitle = WstringFromString(title);
+    std::vector<std::wstring> wFilterStrings;
+    wFilterStrings.reserve(numberOfFilters);
+    std::vector<const wchar_t*> wFilters;
+    wFilters.reserve(numberOfFilters);
+    for(size_t i = 0; i < numberOfFilters; i++)
+    {
+        wFilterStrings.push_back(WstringFromString(filterPatterns[i]));
+        wFilters.push_back(wFilterStrings[i].c_str());
+    }
+    std::wstring description = WstringFromString(filterDescription);
+    auto* file = tinyfd_openFileDialogW(wtitle.c_str(), nullptr, numberOfFilters, wFilters.data(), description.c_str(), 0);
+    if(!file)
+    {
+        return {};
+    }
+    return {file};
+    #else
+    auto* file = tinyfd_openFileDialog(title, nullptr, numberOfFilters, filterPatterns, filterDescription, 0);
+    if(!file)
+    {
+        return {};
+    }
+    return {file};
+    #endif
 }
 
 int main()
@@ -76,7 +106,6 @@ int main()
     };
     iwindow.SetFunctionThatCallsOnDragAndDrop(functionThatRunsOnDragAndDrop);
 
-
     nid.cbSize = sizeof(NOTIFYICONDATA);
     nid.hWnd = (HWND)(SDL_GetProperty(SDL_GetWindowProperties(iwindow.window),"SDL.window.win32.hwnd",nullptr));
     nid.uID = 15;
@@ -116,7 +145,7 @@ int main()
 
                 for (auto &mus: temp_import)
                 {
-                    ImGui::Text(mus.c_str());
+                    ImGui::TextUnformatted(mus.c_str());
                     if (ImGui::IsItemClicked())
                     {
                         queue.AddToEnd(Importer.GetMusic(mus).GetUUID());
@@ -207,18 +236,15 @@ int main()
                     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
-                    ImGui::SmallButton("x");
+                    if(ImGui::SmallButton("x"))
                     {
+                        LastFrame.InputFunction([path = directoryEntry.path()](){std::filesystem::remove(path);});
 
                     }
                     ImGui::PopStyleColor(3);
                 }
 
-                if (ImGui::InputText("Name of playlist", &nameplaylist))
-                {
-
-                }
-
+                if (ImGui::InputText("Name of playlist", &nameplaylist));
                 if(ImGui::Button("+"))
                 {
                     Playlists list(queue.getMainqueue());
@@ -253,6 +279,17 @@ int main()
 
             ImGui::ProgressBar(static_cast<float>(CurrentTime.count()) / static_cast<float>(TotalTime.count()), ImVec2(200.0f, 20.0f),""); //хз почему nullptr не робит
 
+            if((ImGui::IsItemHovered()) and (ImGui::IsMouseClicked(0)))
+            {
+               
+                auto BarPosX = ImGui::GetCursorScreenPos().x + 200;
+                
+                auto pos = ImGui::GetMousePos().x;
+
+                auto timer = (BarPosX - pos) / 200;
+
+                Mix_SetMusicPosition(TotalTime.count() * (1 - timer) / 1000);
+            }
             std::string totalTime = GetTimeAsTextForProgressBar(TotalTime);
 
             std::string currentTime = GetTimeAsTextForProgressBar(CurrentTime);
@@ -279,9 +316,11 @@ int main()
         if(ImGui::Button("Down",{40, 40}))
         {
             const char * filterPatterns[2] = { "*.mp3", "*.WAV" };
-            const char * result = tinyfd_openFileDialog("Напишите", nullptr, 2, filterPatterns,".mp3,.WAV",0);
-            if (result) {
+            std::filesystem::path result = OpenFileDialog("Напишите", 2, filterPatterns,".mp3,.WAV");
+            if (!result.empty()) {
                 Importer.Import(result);
+                JSONID jsonfile(Importer);
+                jsonfile.Save(std::filesystem::current_path() / "Library.json");
             }
         }
 
@@ -293,6 +332,11 @@ int main()
 
 
         ImGui::SetCursorPos({100,70});
+        if(ImGui::Button("CleanAll"))
+        {
+            queue.CleanALL();
+        }
+
         static bool isPlaying = false;
         if(Mix_PlayingMusic() && !Mix_PausedMusic() != isPlaying)
         {
@@ -337,7 +381,7 @@ int main()
             auto& musicName = music.GetName();
             std::string internalIdString = std::to_string(musicInternalId);
 
-            ImGui::Text(musicName.c_str());
+            ImGui::TextUnformatted(musicName.c_str());
 
             if (ImGui::IsItemClicked())
             {

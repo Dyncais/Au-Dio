@@ -7,6 +7,7 @@
 #include "SDL3_mixer/SDL_mixer.h"
 #include "ForWindows/json.hpp"
 #include "fstream"
+#include <filesystem>
 #pragma once
 
 class MusicImporter
@@ -25,6 +26,11 @@ public:
         for(auto& directoryEntry : std::filesystem::directory_iterator(workDirectory))
         {
             Collector.emplace_back(directoryEntry.path());
+        }
+
+        if (!std::filesystem::exists(JSONDirectory)) 
+        {
+            return;
         }
 
         std::ifstream ifs(JSONDirectory, std::ios::in);
@@ -47,7 +53,7 @@ public:
         } //честно не нравится эта идея, но другое вообще не приходит
     }
 
-    void Import(const std::string& path)
+    void Import(const std::filesystem::path& path)
     {
         SaveMusicIfNotSaved(path);
     }

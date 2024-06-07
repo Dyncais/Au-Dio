@@ -62,7 +62,7 @@ public:
         this->path = path;
         object = Mix_LoadMUS(path.string().c_str());
         name = Mix_GetMusicTitle(object);
-
+        
         if(name.empty())
             name = std::filesystem::path(path).filename().replace_extension("").string();
 
