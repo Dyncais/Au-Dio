@@ -2,7 +2,7 @@ set(imgui_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/imgui)
 include(FetchContent)
 FetchContent_Populate(imgui
         URL https://github.com/ocornut/imgui/archive/docking.zip
-        GIT_TAG 36ffdd69d304659388ad3d3be487a467de65eaf6
+        GIT_TAG 226e0d579d2632a81d95f60bb5d65c70e55feb90
         SOURCE_DIR ${imgui_DIR}
 )
 add_library(imgui STATIC
@@ -24,7 +24,7 @@ set(SDL_STATIC TRUE CACHE BOOL "Build a SDL static library (if available)")
 FetchContent_Declare(
         SDL
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG 983544a53e42ed136d1518c62402dad4c2f1958a
+        GIT_TAG 3e60fb42239f2617968dd0e4a167359ec199427a
         GIT_SHALLOW FALSE
         GIT_PROGRESS TRUE
 )
@@ -42,7 +42,7 @@ set(BUILD_SHARED_LIBS  OFF)
 FetchContent_Declare(
         SDL_mixer
         GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
-        GIT_TAG 43bfc20637e2e5274f3f88c187778e43bcfbb684
+        GIT_TAG e2cdd8088be9a2fa176af0d640fc931f0c9df6c6
         GIT_SHALLOW FALSE
         GIT_PROGRESS TRUE
 )
