@@ -42,7 +42,7 @@ set(BUILD_SHARED_LIBS  OFF)
 FetchContent_Declare(
         SDL_mixer
         GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
-        GIT_TAG main
+        GIT_TAG 43bfc20637e2e5274f3f88c187778e43bcfbb684
         GIT_SHALLOW FALSE
         GIT_PROGRESS TRUE
 )
