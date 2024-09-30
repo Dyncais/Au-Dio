@@ -4,11 +4,23 @@
 
 #include "filesystem"
 #include "iostream"
+#include <fstream>
 #include "SDL3_mixer/SDL_mixer.h"
 #include "chrono"
 #include "UUID.h"
 
+#include "stb_image.h"
+#include <taglib/attachedpictureframe.h>
+#include "taglib/tiostream.h"
+#include <taglib/fileref.h>
+#include <taglib/mpegfile.h>
+#include <taglib/id3v2tag.h>
+#include "taglib/mpegfile.h"
+#include <cstdio>
+
 #pragma once
+
+
 
 class MusicBlock
 {
@@ -17,6 +29,8 @@ class MusicBlock
     std::filesystem::path path;
 
     std::chrono::milliseconds duration {0};
+
+    const unsigned char* imagedata;
 
     Mix_Music* object = nullptr;
 
@@ -57,6 +71,10 @@ public:
         return path;
     }
 
+    const unsigned char*& GetImage()
+    {
+        return imagedata;
+    }
     MusicBlock(const std::filesystem::path& path)
     {
         this->path = path;
@@ -74,6 +92,31 @@ public:
             std::cerr << "Ошибка при загрузке MP3: " << Mix_GetError() << std::endl;
             return;
         }
+        TagLib::MPEG::File file(path.string().c_str());
+        if (file.isValid()) {
+            TagLib::ID3v2::Tag* id3v2tag = file.ID3v2Tag();
+            if (id3v2tag) {
+                TagLib::ID3v2::FrameList frames = id3v2tag->frameList("APIC");
+                if (!frames.isEmpty()) {
+                    auto* picFrame = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame*>(frames.front());
+                    if (picFrame) {
+                        // std::string coverPath = "C:\\Users\\Dima\\Desktop\\cover.jpg";
+                        // std::ofstream imageFile(coverPath, std::ios::binary);
+                        // imageFile.write((const char*)picFrame->picture().data(), picFrame->picture().size());
+                        // imageFile.close();
+                        imagedata = reinterpret_cast<const unsigned char*>(picFrame->picture().data());
+
+                    } else {
+                        std::cerr << "Не удалось преобразовать фрейм в AttachedPictureFrame." << std::endl;
+                    }
+                } else {
+                    std::cout << "Обложка не найдена." << std::endl;
+                }
+            }
+        } else {
+            std::cerr << "Не удалось прочитать метаданные." << std::endl;
+        }
+
         std::cout << std::format("MusicBlock created. UUID: {0}; Name: {1}; Path: {2}; Duration {3} ms", static_cast<uint64_t>(uuid), name, path.string(), duration) << '\n';
     }
 
@@ -116,6 +159,8 @@ public:
     {
         name = newName;
     }
+
+
 
     ~MusicBlock()
     {

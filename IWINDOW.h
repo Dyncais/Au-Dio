@@ -1,6 +1,7 @@
 //
 // Created by Dima on 24.09.2023.
 //
+#include "SDL3/SDL_render.h"
 #include "string"
 #include <SDL3/SDL.h>
 #include <cstdint>
@@ -30,6 +31,7 @@ public:
     m_OnDragAndDrop = func;
   }
 
+  SDL_Renderer* Rendered(){return render;}
   bool IsRunning() const { return is_running; }
 
   SDL_Window *GetWindow() const { return window; }

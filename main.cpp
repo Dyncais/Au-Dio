@@ -1,14 +1,24 @@
+
+#include "SDL3/SDL_iostream.h"
+#include "SDL3/SDL_oldnames.h"
+#include "SDL3/SDL_pixels.h"
+#include "SDL3/SDL_surface.h"
+#include <exception>
+
+#define STB_IMAGE_IMPLEMENTATION
 #include "IWINDOW.h"
+#include "SDL3/SDL_opengl.h"
 #include "SDL3_mixer/SDL_mixer.h"
 #include "imgui.h"
 #include "import.h"
 #include "misc/cpp/imgui_stdlib.h"
-#include "sndfile.h"
 #include <filesystem>
 #include <iostream>
 
 #include <SDL3/SDL.h>
 #include <windows.h>
+#include <winuser.h>
+#include "stb_image.h"
 
 #include "DeletionQueue.h"
 #include "ForWindows/Windows.h"
@@ -19,13 +29,87 @@
 #include "PlayLists.h"
 #include "QueueSystem.h"
 
+
+
+void LoadTextureFromFile(const char* filename, SDL_Texture** texture_ptr, int& width, int& height, SDL_Renderer* renderer) {
+    
+    SDL_RWops* rw = SDL_RWFromConstMem(data, size);
+    int channels;
+    unsigned char* data = stbi_load(filename, &width, &height, &channels, 0);
+    
+    if (data == nullptr) {
+        std::cout << "Failed to load image";
+        throw std::exception("data");
+    }
+
+    SDL_PixelFormat format;
+    if (channels == 3) {
+        format = SDL_PIXELFORMAT_RGB24; 
+    } else if (channels == 4) {
+        format = SDL_PIXELFORMAT_RGBA32;
+    } else {
+        fprintf(stderr, "Unsupported image format (channels = %d)\n", channels);
+        stbi_image_free(data);
+        throw std::exception("SDL_PixelFormat");
+    }
+
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(  
+        width,          
+        height, 
+        format,       
+        (void*)data, 
+        width * channels
+    );
+
+    if (!surface) {
+        std::cout << "Failed to create surface from image";
+        stbi_image_free(data);
+        throw std::exception("surface");
+    }
+
+    *texture_ptr = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!*texture_ptr) {
+        std::cout << "Failed to create texture from surface";
+        SDL_DestroySurface(surface);
+        stbi_image_free(data);
+        throw std::exception("SDL_CreateTextureFromSurface");
+    }
+
+    SDL_DestroySurface(surface);
+    stbi_image_free(data);
+}
+
+void LoadTextureFromMemory(const unsigned char* data, size_t size, SDL_Texture** texture_ptr, int& width, int& height, SDL_Renderer* renderer) {
+    
+    SDL_IOStream* rw = SDL_IOFromConstMem(data, size);
+    if (!rw) {
+        std::cerr << "Не удалось создать RWops из памяти: " << SDL_GetError() << std::endl;
+        throw std::exception("SDL_RWops");
+    }
+
+    SDL_Surface* surface = SDL_LoadBMP_IO(rw, 1);  
+    if (!surface) {
+        throw std::exception("IMG_Load_RW");
+    }
+
+    width = surface->w;
+    height = surface->h;
+
+    *texture_ptr = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!*texture_ptr) {
+        std::cerr << "Ошибка создания текстуры из поверхности: " << SDL_GetError() << std::endl;
+        SDL_DestroySurface(surface);
+        throw std::exception("SDL_CreateTextureFromSurface");
+    }
+
+    SDL_DestroySurface(surface);  
+}
+
 struct COLORS {
   float r = 1, g = 1, b = 1;
 };
 
 int volumeLevel = 50;
-
-NOTIFYICONDATA nid;
 
 std::string GetTimeAsTextForProgressBar(std::chrono::milliseconds time) {
   auto timeText = time.count();
@@ -103,27 +187,15 @@ int main() {
   };
   iwindow.SetFunctionThatCallsOnDragAndDrop(functionThatRunsOnDragAndDrop);
 
-  nid.cbSize = sizeof(NOTIFYICONDATA);
-  nid.hWnd = (HWND)(SDL_GetPointerProperty(
-      SDL_GetWindowProperties(iwindow.window),
-      SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
-  nid.uID = 15;
-  nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-  nid.uCallbackMessage = 15666;
-  std::string iconPath =
-      (std::filesystem::current_path() / "Assets/Icon.ico").string();
-  nid.hIcon = (HICON)LoadImage(nullptr, iconPath.c_str(), IMAGE_ICON, 0, 0,
-                               LR_LOADFROMFILE);
 
-  strcpy_s(nid.szTip, "Player");
-  Shell_NotifyIcon(NIM_ADD, &nid);
+  SDL_Texture* my_texture;
+  int my_image_width, my_image_height;
+  LoadTextureFromFile("C:\\Users\\Dima\\Desktop\\Bruh.jpg", &my_texture, my_image_width, my_image_height, iwindow.Rendered());
 
-  // ShowWindow(nid.hWnd, SW_HIDE);
-  // ShowWindow(nid.hWnd, SW_RESTORE);
-  // HMENU hMenu = LoadMenu(nullptr, iconPath.c_str());
 
   while (iwindow.IsRunning()) {
     iwindow.Events();
+    iwindow.BeginDrawing();
     iwindow.StartFrame();
     ImGui::Begin("Gayteka");
 
@@ -253,7 +325,7 @@ int main() {
                           : Importer.GetMusic(currentMusic).GetName();
 
     // ImGui::SetCursorPos({ImGui::GetWindowSize().x/2, 30});
-    ImGui::Text(currentMusName.c_str());
+    ImGui::TextUnformatted(currentMusName.c_str());
 
     if (currentMusName == "Choose music") {
       ImGui::ProgressBar(0, ImVec2(200.0f, 20.0f));
@@ -285,14 +357,22 @@ int main() {
       ImGui::Text("%s/%s", currentTime.c_str(), totalTime.c_str());
 
       if (TotalTime == CurrentTime) {
-        Mix_RewindMusic();
-        Mix_PauseMusic();
-        queue.Next_Song();
-        currentMusic = queue.GetCurrentMusic();
-        if (currentMusic != 0) {
-          Mix_PlayMusic(Importer.GetMusic(currentMusic).GetMus(), 1);
-          TotalTime = Importer.GetMusic(currentMusic).GetTime();
+        if (queue.isLoop())
+        {
+          Mix_SetMusicPosition(0);
         }
+        else
+         {
+          
+            Mix_RewindMusic();
+            Mix_PauseMusic();
+            queue.Next_Song();
+            currentMusic = queue.GetCurrentMusic();
+            if (currentMusic != 0) {
+              Mix_PlayMusic(Importer.GetMusic(currentMusic).GetMus(), 1);
+              TotalTime = Importer.GetMusic(currentMusic).GetTime();
+            }
+         }
       }
     }
 
@@ -347,6 +427,16 @@ int main() {
       }
     }
 
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Repeater",queue.isLoop()))
+      {
+        queue.ChangeLoop();
+      }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Same Repeater But Cooler",queue.isQueueLoop()))
+      {
+        queue.ChangeQueueLoop();
+      }
     if (ImGui::SliderInt("##volume", &volumeLevel, 0, 100))
       Mix_VolumeMusic(volumeLevel);
 
@@ -390,9 +480,23 @@ int main() {
         queue.SwapDown(musicInternalId);
       }
 
+
       ImGui::PopID();
     }
 
+    // SDL_Texture* my_texture;
+    // int my_image_width, my_image_height;
+    // LoadTextureFromFile("C:\\Users\\Dima\\Desktop\\7de3058f007abcc70e7ebce877d19c68.jpg", &my_texture, my_image_width, my_image_height, iwindow.Rendered());
+    // float aspectRatio = static_cast<float>(my_image_width) / static_cast<float>(my_image_height);
+    // auto imageSize = ImGui::GetContentRegionAvail();
+    // imageSize.y = imageSize.x / aspectRatio;
+
+    // SDL_Texture* textureToShow;
+    ///...
+    
+    //ImGui::Image((void*) textureToShow, imageSize);
+    //ImGui::ImageButton("SD", (void*) my_texture, imageSize);
+    
     if (ProcessChange) {
       changing();
     }
@@ -405,7 +509,5 @@ int main() {
     iwindow.EndDrawing(cl.r * 255, cl.g * 255, cl.b * 255,
                        255); // 3 int: 0 - 255
   }
-  Shell_NotifyIcon(NIM_DELETE, &nid);
-
   // Cleanup
 }

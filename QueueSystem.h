@@ -17,6 +17,7 @@ class Queue
 
 private:
     bool loop = false;
+    bool queueloop = false;
     using UUIDFromMusicBlock = MusicPlayer::UUID;
     using UUIDFromQueue = MusicPlayer::UUID;
     std::unordered_map<UUIDFromQueue, UUIDFromMusicBlock> mappedIds;
@@ -41,6 +42,10 @@ public:
         return loop;
     }
 
+    bool isQueueLoop() const
+    {
+        return queueloop;
+    }
 
     Queue(const std::vector<MusicPlayer::UUID>& imported)
     {
@@ -74,7 +79,7 @@ public:
             return;
         }
 
-        if ((currentMusic == mainqueue[mainqueue.size() - 1]) and loop)
+        if ((currentMusic == mainqueue[mainqueue.size() - 1]) and queueloop)
         {
             currentMusic = mainqueue[0];
             return;
@@ -171,6 +176,11 @@ public:
     void ChangeLoop()
     {
         loop = !loop;
+    }
+
+    void ChangeQueueLoop()
+    {
+        queueloop = !queueloop;
     }
 
     void Delete(MusicPlayer::UUID internalId)
