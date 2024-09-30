@@ -27,15 +27,16 @@ private:
 public:
 
     std::vector<std::pair<MusicPlayer::UUID, MusicPlayer::UUID>> getMainqueue() const
-    {
-        std::vector<std::pair<MusicPlayer::UUID, MusicPlayer::UUID>> result;
-        result.reserve(mainqueue.size());
-        for(auto internalId : mainqueue)
-        {
-            result.emplace_back(internalId, InternalIDToGlobalID(internalId));
-        }
-        return result;
-    }
+{
+    std::vector<std::pair<MusicPlayer::UUID, MusicPlayer::UUID>> result(mainqueue.size());
+    std::transform(mainqueue.begin(), mainqueue.end(), result.begin(), 
+        [this](auto internalId) {
+            return std::make_pair(internalId, InternalIDToGlobalID(internalId));
+        });
+    return result;
+}
+
+    
 
     bool isLoop() const
     {
@@ -93,11 +94,9 @@ public:
             return;
         }
 
-        size_t i = 0;
-        while (currentMusic != mainqueue[i])
-        {
-            i++;
-        }
+        auto it = std::find(mainqueue.begin(), mainqueue.end(), currentMusic);
+        size_t i = std::distance(mainqueue.begin(), it);
+
         currentMusic = mainqueue[i + 1];
     }
 
@@ -131,48 +130,40 @@ public:
     bool IsLast(MusicPlayer::UUID id)
     {
         assert(!mainqueue.empty() && "Queue must be not empty");
-        return id == mainqueue[mainqueue.size() - 1];
+        return id == mainqueue.back();
     }
 
     void SwapUp(MusicPlayer::UUID id)
-    {
-        assert(!mainqueue.empty() && "Queue must be not empty");
+{
+    assert(!mainqueue.empty() && "Queue must be not empty");
 
-        for(size_t i = 0;i < mainqueue.size(); ++i)
-        {
+    auto it = std::find(mainqueue.begin(), mainqueue.end(), id);
+    
+    if (it == mainqueue.end())
+        throw std::runtime_error("Swap not successful: element not found");
 
-            if ((id == mainqueue[i]))
-            {
-                assert(i > 0 && "Swap out of range");
+    if (it == mainqueue.begin())
+        throw std::runtime_error("Swap not successful: cannot swap up first element");
 
-                auto temp = mainqueue[i - 1];
-                mainqueue[i - 1] = id;
-                mainqueue[i] = temp;
-                return;
-            }
-        }
+    std::iter_swap(it, std::prev(it));
+}
 
-        throw std::runtime_error("Swap not success");
-    }
 
     void SwapDown(MusicPlayer::UUID id)
     {
-        assert(!mainqueue.empty() && "Queue must be not empty");
+    assert(!mainqueue.empty() && "Queue must be not empty");
 
-        for(size_t i = 0;i < mainqueue.size() - 1; ++i)
-        {
+    auto it = std::find(mainqueue.begin(), mainqueue.end(), id);
+    
+    if (it == mainqueue.end())
+        throw std::runtime_error("Swap not successful: element not found");
 
-            if ((id == mainqueue[i]))
-            {
-                auto temp = mainqueue[i + 1];
-                mainqueue[i + 1] = id;
-                mainqueue[i] = temp;
-                return;
-            }
-        }
+    if (std::next(it) == mainqueue.end())
+        throw std::runtime_error("Swap not successful: cannot swap down last element");
 
-        throw std::runtime_error("Swap not success");
+    std::iter_swap(it, std::next(it));
     }
+
     void ChangeLoop()
     {
         loop = !loop;

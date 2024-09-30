@@ -18,7 +18,7 @@
 #include <SDL3/SDL.h>
 #include <windows.h>
 #include <winuser.h>
-#include "stb_image.h"
+//#include "stb_image.h"
 
 #include "DeletionQueue.h"
 #include "ForWindows/Windows.h"
@@ -31,7 +31,7 @@
 
 
 
-void LoadTextureFromFile(const char* filename, SDL_Texture** texture_ptr, int& width, int& height, SDL_Renderer* renderer) {
+/*void LoadTextureFromFile(const char* filename, SDL_Texture** texture_ptr, int& width, int& height, SDL_Renderer* renderer) {
     
     SDL_RWops* rw = SDL_RWFromConstMem(data, size);
     int channels;
@@ -103,7 +103,7 @@ void LoadTextureFromMemory(const unsigned char* data, size_t size, SDL_Texture**
     }
 
     SDL_DestroySurface(surface);  
-}
+}*/
 
 struct COLORS {
   float r = 1, g = 1, b = 1;
@@ -190,7 +190,7 @@ int main() {
 
   SDL_Texture* my_texture;
   int my_image_width, my_image_height;
-  LoadTextureFromFile("C:\\Users\\Dima\\Desktop\\Bruh.jpg", &my_texture, my_image_width, my_image_height, iwindow.Rendered());
+  //LoadTextureFromFile("C:\\Users\\Dima\\Desktop\\Bruh.jpg", &my_texture, my_image_width, my_image_height, iwindow.Rendered());
 
 
   while (iwindow.IsRunning()) {
@@ -425,6 +425,12 @@ int main() {
         Mix_PlayMusic(Importer.GetMusic(currentMusic).GetMus(), 1);
         TotalTime = Importer.GetMusic(currentMusic).GetTime();
       }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(">", {10, 40})) {
+      Mix_RewindMusic();
+      Mix_PauseMusic();
+      queue.Next_Song();
     }
 
     ImGui::SameLine();
